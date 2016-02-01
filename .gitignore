@@ -2,3 +2,4 @@ build
 *.creator*
 can-drawer.config
 can-drawer.includes
+can-drawer.files

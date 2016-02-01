@@ -6,6 +6,16 @@
 #include <candev/node.h>
 #include <candev/ceac124.h>
 
+#include "path.h"
+
+void func(double t, double *x, double *y) {
+	int s = 4;
+	int ft = (int)floor(t);
+	double r = ((ft%4) + (t - ft))/s;
+	*x = r*cos(2*M_PI*t);
+	*y = r*sin(2*M_PI*t);
+}
+
 #define __REALTIME__
 
 long get_ns_diff(const struct timespec *ts, const struct timespec *lts) {
@@ -37,6 +47,9 @@ int main(int argc, char *argv[]) {
 	
 	dev.cb_cookie = (void *) &dev;
 	
+	Path path;
+	pathInit(&path, func);
+	
 #ifdef __REALTIME__
 	struct sched_param param;
 	param.sched_priority = 80;
@@ -58,14 +71,14 @@ int main(int argc, char *argv[]) {
 		wp.use_code = 0;
 		
 		wp.channel_number = 0;
-		wp.voltage = 7.4*cos(t);
+		wp.voltage = 7.4*path.x;
 		if(CEAC124_dacWrite(&dev, &wp) != 0) {
 			fprintf(stderr, "error dac write\n");
 			return 2;
 		}
 		
 		wp.channel_number = 2;
-		wp.voltage = 7.4*sin(t);
+		wp.voltage = 7.4*path.y;
 		if(CEAC124_dacWrite(&dev, &wp) != 0) {
 			fprintf(stderr, "error dac write\n");
 			return 2;
@@ -84,7 +97,9 @@ int main(int argc, char *argv[]) {
 		ns = get_ns_diff(&ts, &lts);
 		lts = ts;
 		
-		t += freq*(2*M_PI*1e-9*ns);
+		double dt = freq*(2*M_PI*1e-9*ns);
+		pathStep(&path, dt);
+		t += dt;
 	}
 	
 	CAN_destroyNode(&node);
