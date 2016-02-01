@@ -1,0 +1,3 @@
+[submodule "source/candev"]
+	path = source/candev
+	url = https://github.com/inp-xenomai-plus-can/libcandev.git
