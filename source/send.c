@@ -4,19 +4,23 @@
 #include <pthread.h>
 
 #include <candev/node.h>
-#include <candev/ceac124.h>
+#include <candev/kozak.h>
 
 #include "path.h"
 
 void func(double t, double *x, double *y) {
-	int s = 4;
+	const int mr = 7.4;
+	const int s = 4;
+	t *= s;
 	int ft = (int)floor(t);
-	double r = ((ft%4) + (t - ft))/s;
+	double r = mr*((ft%s) + (t - ft))/s;
 	*x = r*cos(2*M_PI*t);
 	*y = r*sin(2*M_PI*t);
 }
 
 #define __REALTIME__
+// #define __PRINT__
+// #define __ONE_PERIOD__
 
 long get_ns_diff(const struct timespec *ts, const struct timespec *lts) {
 	return 1000000000*(ts->tv_sec - lts->tv_sec) + ts->tv_nsec - lts->tv_nsec;
@@ -26,7 +30,7 @@ int main(int argc, char *argv[]) {
 	int status;
 	int done = 0;
 	CAN_Node node;
-	CEAC124 dev;
+	KOZ dev;
 	
 	//signal(SIGTERM, sig_handler);
 	//signal(SIGINT, sig_handler);
@@ -43,7 +47,7 @@ int main(int argc, char *argv[]) {
 
 	printf("Node created\n");
 	
-	CEAC124_setup(&dev, 0x1F, &node);
+	KOZ_setup(&dev, 0x1F, &node);
 	
 	dev.cb_cookie = (void *) &dev;
 	
@@ -58,31 +62,51 @@ int main(int argc, char *argv[]) {
 	
 	double t = 0.0;
 	struct timespec lts;
-	double freq = 0.5; // Hz
+	double speed = 32.4234734626354141; // V/s
 	long delay = 10000000; // ns
 	
 	long ns;
+	long counter = 0;
+	
+	Path old_path = path;
 	
 	clock_gettime(CLOCK_MONOTONIC, &lts);
 	while(!done) {
 		struct timespec ts;
+		double dt;
 		
-		CEAC124_DACWriteProp wp;
+		KOZ_DACWriteProp wp;
 		wp.use_code = 0;
 		
 		wp.channel_number = 0;
-		wp.voltage = 7.4*path.x;
-		if(CEAC124_dacWrite(&dev, &wp) != 0) {
+		wp.voltage = path.x;
+		if(KOZ_dacWrite(&dev, &wp) != 0) {
 			fprintf(stderr, "error dac write\n");
 			return 2;
 		}
 		
-		wp.channel_number = 2;
-		wp.voltage = 7.4*path.y;
-		if(CEAC124_dacWrite(&dev, &wp) != 0) {
+#ifdef __PRINT__
+		clock_gettime(CLOCK_MONOTONIC, &ts);
+		ns = get_ns_diff(&ts, &lts);
+		dt = 1e-9*ns;
+		
+		printf("%lf \t%lf \t%lf \n", path.x, old_path.y, t + dt);
+#endif // __PRINT__
+		
+		wp.channel_number = 1;
+		wp.voltage = path.y;
+		if(KOZ_dacWrite(&dev, &wp) != 0) {
 			fprintf(stderr, "error dac write\n");
 			return 2;
 		}
+		
+#ifdef __PRINT__
+		clock_gettime(CLOCK_MONOTONIC, &ts);
+		ns = get_ns_diff(&ts, &lts);
+		dt = 1e-9*ns;
+		
+		printf("%lf \t%lf \t%lf \n", path.x, path.y, t + dt);
+#endif // __PRINT__
 		
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		ns = get_ns_diff(&ts, &lts);
@@ -97,12 +121,27 @@ int main(int argc, char *argv[]) {
 		ns = get_ns_diff(&ts, &lts);
 		lts = ts;
 		
-		double dt = freq*(2*M_PI*1e-9*ns);
-		pathStep(&path, dt);
+		old_path = path;
+		
+		dt = 1e-9*ns;
+		double dpar = speed*dt;
+		pathStep(&path, dpar);
 		t += dt;
+		
+#ifdef __ONE_PERIOD__
+		++counter;
+		if(path.t > 1.0)
+			break;
+#endif
 	}
 	
+#ifdef __REALTIME__
+	pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+#endif // __REALTIME__
+	
 	CAN_destroyNode(&node);
+	
+	printf("done in %ld steps\n", counter);
 	
 	printf("exiting...\n");
 	

@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-double deriv(void (*f)(double, double *, double *), double t) {
+double derivLength(void (*f)(double, double *, double *), double t) {
 	double dt = 1e-8;
 	double x[2], y[2];
 	f(t, x, y);
@@ -18,6 +18,6 @@ void pathInit(Path *path, void (*f)(double, double *, double *))  {
 }
 
 void pathStep(Path *path, double dt) {
-	path->t += dt/deriv(path->f, path->t);
+	path->t += dt/derivLength(path->f, path->t);
 	path->f(path->t, &path->x, &path->y);
 }

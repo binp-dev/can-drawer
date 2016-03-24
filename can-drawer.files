@@ -1,12 +1,15 @@
 Makefile
 
-source/candev/ceac124.h
+source/candev/kozak.h
 source/candev/device.h
 source/candev/example.c
 source/candev/node_init.c
 source/candev/node_use.c
 source/candev/util.h
 
-source/main.c
+source/send.c
 source/path.h
 source/path.c
+source/recv.c
+source/candev/node.h
+check-output.sh

@@ -6,7 +6,7 @@ LF=${XENO_LDFLAGS} -lm
 
 .phony: all clean
 
-all: build build/candev build/can-drawer
+all: build build/candev build/can-send build/can-recv
 
 build:
 	mkdir -p $@
@@ -14,10 +14,16 @@ build:
 build/candev: build
 	mkdir -p $@
 
-build/can-drawer: build/main.o build/path.o build/candev/node_init.o build/candev/node_use.o 
+build/can-send: build/send.o build/path.o build/candev/node_init.o build/candev/node_use.o 
 	gcc ${LF} -o $@ $^
 
-build/main.o: source/main.c source/candev/node.h source/path.h
+build/send.o: source/send.c source/candev/node.h source/path.h
+	gcc ${CF} -c -o $@ $<
+
+build/can-recv: build/recv.o build/path.o build/candev/node_init.o build/candev/node_use.o 
+	gcc ${LF} -o $@ $^
+
+build/recv.o: source/recv.c source/candev/node.h source/path.h
 	gcc ${CF} -c -o $@ $<
 
 build/path.o: source/path.c source/path.h
