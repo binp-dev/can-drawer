@@ -4,9 +4,13 @@ XENO_LDFLAGS=-g $(shell xeno-config --skin=posix --ldflags)
 CF=${XENO_CFLAGS} -Isource
 LF=${XENO_LDFLAGS} -lm
 
+SRC_PATH=source
+CANDEV_PATH=${SRC_PATH}/candev
+CANDEV_HDRS=${CANDEV_PATH}/node.h ${CANDEV_PATH}/device.h ${CANDEV_PATH}/kozak.h ${CANDEV_PATH}/util.h
+
 .phony: all clean
 
-all: build build/candev build/can-send build/can-recv
+all: build build/candev build/can-control build/can-monitor
 
 build:
 	mkdir -p $@
@@ -14,23 +18,23 @@ build:
 build/candev: build
 	mkdir -p $@
 
-build/can-send: build/send.o build/path.o build/candev/node_init.o build/candev/node_use.o 
+build/can-control: build/control.o build/path.o build/candev/node_init.o build/candev/node_use.o 
 	gcc ${LF} -o $@ $^
 
-build/send.o: source/send.c source/candev/node.h source/path.h
+build/control.o: source/control.c source/path.h ${CANDEV_HDRS}
 	gcc ${CF} -c -o $@ $<
 
-build/can-recv: build/recv.o build/path.o build/candev/node_init.o build/candev/node_use.o 
+build/can-monitor: build/monitor.o build/path.o build/candev/node_init.o build/candev/node_use.o 
 	gcc ${LF} -o $@ $^
 
-build/recv.o: source/recv.c source/candev/node.h source/path.h
+build/monitor.o: source/monitor.c source/path.h ${CANDEV_HDRS}
 	gcc ${CF} -c -o $@ $<
 
 build/path.o: source/path.c source/path.h
 	gcc ${CF} -c -o $@ $<
 
-build/candev/node_init.o: source/candev/node_init.c
+build/candev/node_init.o: source/candev/node_init.c ${CANDEV_PATH}/node.h
 	gcc ${CF} -c -o $@ $<
 	
-build/candev/node_use.o: source/candev/node_use.c
+build/candev/node_use.o: source/candev/node_use.c ${CANDEV_PATH}/node.h
 	gcc ${CF} -c -o $@ $<

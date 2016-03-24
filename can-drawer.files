@@ -7,9 +7,8 @@ source/candev/node_init.c
 source/candev/node_use.c
 source/candev/util.h
 
-source/send.c
+source/control.c
 source/path.h
 source/path.c
-source/recv.c
+source/monitor.c
 source/candev/node.h
-check-output.sh

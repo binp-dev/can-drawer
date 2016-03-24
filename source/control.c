@@ -19,8 +19,7 @@ void func(double t, double *x, double *y) {
 }
 
 #define __REALTIME__
-// #define __PRINT__
-// #define __ONE_PERIOD__
+#define __PRINT__
 
 long get_ns_diff(const struct timespec *ts, const struct timespec *lts) {
 	return 1000000000*(ts->tv_sec - lts->tv_sec) + ts->tv_nsec - lts->tv_nsec;
@@ -47,7 +46,7 @@ int main(int argc, char *argv[]) {
 
 	printf("Node created\n");
 	
-	KOZ_setup(&dev, 0x1F, &node);
+	KOZ_setup(&dev, 0x0F, &node);
 	
 	dev.cb_cookie = (void *) &dev;
 	
@@ -62,7 +61,7 @@ int main(int argc, char *argv[]) {
 	
 	double t = 0.0;
 	struct timespec lts;
-	double speed = 32.4234734626354141; // V/s
+	double speed = 1.0; // V/s
 	long delay = 10000000; // ns
 	
 	long ns;
@@ -78,35 +77,37 @@ int main(int argc, char *argv[]) {
 		KOZ_DACWriteProp wp;
 		wp.use_code = 0;
 		
-		wp.channel_number = 0;
+		// X channels
 		wp.voltage = path.x;
-		if(KOZ_dacWrite(&dev, &wp) != 0) {
-			fprintf(stderr, "error dac write\n");
-			return 2;
+		{
+			wp.channel_number = 2;
+			if(KOZ_dacWrite(&dev, &wp) != 0) {
+				fprintf(stderr, "error dac write\n");
+				return 2;
+			}
+			
+			wp.channel_number = 4;
+			if(KOZ_dacWrite(&dev, &wp) != 0) {
+				fprintf(stderr, "error dac write\n");
+				return 2;
+			}
 		}
 		
-#ifdef __PRINT__
-		clock_gettime(CLOCK_MONOTONIC, &ts);
-		ns = get_ns_diff(&ts, &lts);
-		dt = 1e-9*ns;
-		
-		printf("%lf \t%lf \t%lf \n", path.x, old_path.y, t + dt);
-#endif // __PRINT__
-		
-		wp.channel_number = 1;
+		// Y channels
 		wp.voltage = path.y;
-		if(KOZ_dacWrite(&dev, &wp) != 0) {
-			fprintf(stderr, "error dac write\n");
-			return 2;
+		{
+			wp.channel_number = 3;
+			if(KOZ_dacWrite(&dev, &wp) != 0) {
+				fprintf(stderr, "error dac write\n");
+				return 2;
+			}
+			
+			wp.channel_number = 5;
+			if(KOZ_dacWrite(&dev, &wp) != 0) {
+				fprintf(stderr, "error dac write\n");
+				return 2;
+			}
 		}
-		
-#ifdef __PRINT__
-		clock_gettime(CLOCK_MONOTONIC, &ts);
-		ns = get_ns_diff(&ts, &lts);
-		dt = 1e-9*ns;
-		
-		printf("%lf \t%lf \t%lf \n", path.x, path.y, t + dt);
-#endif // __PRINT__
 		
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		ns = get_ns_diff(&ts, &lts);
@@ -128,11 +129,7 @@ int main(int argc, char *argv[]) {
 		pathStep(&path, dpar);
 		t += dt;
 		
-#ifdef __ONE_PERIOD__
 		++counter;
-		if(path.t > 1.0)
-			break;
-#endif
 	}
 	
 #ifdef __REALTIME__

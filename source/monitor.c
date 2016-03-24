@@ -29,19 +29,17 @@ typedef struct {
 
 typedef struct {
 	Time *time;
-	Path *path;
-	Buffer *buffer;
 	int *done;
 } Cookie;
 
-void callback(void *cookie_data, struct can_frame *frame) {
+void callback(void *cookie_data, const KOZ_ADCReadResult *result) {
 	struct timespec ts;
 	long ns;
 	
+	//printf("callback\n");
+	
 	Cookie *cookie = (Cookie*)cookie_data;
 	Time *time = cookie->time;
-	Path *path = cookie->path;
-	Buffer *buffer = cookie->buffer;
 	
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	if(!time->init) {
@@ -52,76 +50,61 @@ void callback(void *cookie_data, struct can_frame *frame) {
 	}
 	time->lts = ts;
 	
-	int chan = frame->data[0] & 0xf;
-	int ival = ((int)frame->data[1] << 8) | (int)frame->data[2];
-	double val = ((double)ival/0xFFFF)*(KOZ_DAC_MAX_VOLTAGE - KOZ_DAC_MIN_VOLTAGE) + KOZ_DAC_MIN_VOLTAGE;
-	
-	switch(chan) {
-	case 0:
-		path->x = val;
-		break;
-	case 1:
-		path->y = val;
-		break;
-	}
-	
-	fprintf(stderr, "%ld\n", buffer->pos);
-	
-	buffer->coord[2*buffer->pos + 0] = path->x;
-	buffer->coord[2*buffer->pos + 1] = path->y;
-	buffer->time[buffer->pos] = time->t;		
-	
-	buffer->pos++;
-	if(buffer->pos >= buffer->len)
-		*(cookie->done) = 1;
+	printf("channel: %d,\tvoltage: %lf,\ttime: %lf\n", result->channel_number, result->voltage, time->t);
 	
 	time->t += 1e-9*ns;
 	
 	++time->counter;
 }
 
+int done = 0;
+
+void sighandler(int sig)
+{
+	done = 1;
+}
+
 int main(int argc, char *argv[]) {
 	int i;
 	int status;
-	int done = 0;
 	CAN_Node node;
+	KOZ dev;
 	
-	//signal(SIGTERM, sig_handler);
-	//signal(SIGINT, sig_handler);
+	signal(SIGTERM, sighandler);
+	signal(SIGINT, sighandler);
 	
 	const char *ifname;
 #ifdef __XENO__
-	ifname = "rtcan1";
+	ifname = "rtcan0";
 #else
-	ifname = "can1";
+	ifname = "can0";
 #endif
+	
 	status = CAN_createNode(&node, ifname);
 	if(status != 0)
 		return 1;
-
-	//printf("Node created\n");
+	
+	printf("Node created\n");
+	
+	status = KOZ_setup(&dev, 0x0f, &node);
+	if(status != 0)
+		return 2;
+	
+	dev.cb_adc_read_m = callback;
+	dev.cb_adc_read_s = callback;
+	
+	printf("Device initialized\n");
 	
 	Time time;
 	time.t = 0.0;
 	time.init = 0;
 	time.counter = 0;
 	
-	Path path;
-	path.x = 0;
-	path.y = 0;
-	path.t = 0;
-	
-	Buffer buffer;
-	buffer.len = 0x1000;
-	buffer.pos = 0;
-	buffer.coord = (double*)malloc(2*sizeof(double)*buffer.len);
-	buffer.time = (double*)malloc(sizeof(double)*buffer.len);
-	
 	Cookie cookie;
-	cookie.path = &path;
 	cookie.time = &time;
-	cookie.buffer = &buffer;
 	cookie.done = &done;
+	
+	dev.cb_cookie = (void *) &cookie;
 	
 #ifdef __REALTIME__
 	struct sched_param param;
@@ -129,7 +112,16 @@ int main(int argc, char *argv[]) {
 	pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
 #endif // __REALTIME__
 	
-	CAN_listen(&node, callback, &cookie, &done);
+	KOZ_ADCReadMProp prop;
+	prop.channel_begin = 4;
+	prop.channel_end = 9;
+	prop.mode = 0x30;
+	prop.time = KOZ_ADC_READ_TIME_1MS;
+	KOZ_adcReadM(&dev, &prop);
+	
+	KOZ_listen(&dev, &done);
+	
+	KOZ_adcStop(&dev);
 	
 #ifdef __REALTIME__
 	pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
@@ -137,16 +129,7 @@ int main(int argc, char *argv[]) {
 	
 	CAN_destroyNode(&node);
 	
-	for(i = 0; i < buffer.pos; ++i) {
-		printf("%lf \t%lf \t%lf \n", buffer.coord[2*i + 0], buffer.coord[2*i + 1], buffer.time[i]);
-	}
-	
-	free((void*)buffer.coord);
-	free((void*)buffer.time);
-	
-	//printf("done in %ld steps\n", counter);
-	
-	//printf("exiting...\n");
+	printf("exiting...\n");
 	
 	return 0;
 }
