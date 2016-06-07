@@ -13,3 +13,4 @@ source/path.c
 source/recv.c
 source/candev/node.h
 check-output.sh
+source/curve.c

@@ -34,3 +34,8 @@ build/candev/node_init.o: source/candev/node_init.c
 	
 build/candev/node_use.o: source/candev/node_use.c
 	gcc ${CF} -c -o $@ $<
+
+curve: build/curve
+
+build/curve: source/curve.c
+	gcc -o $@ $^
