@@ -6,7 +6,6 @@
 #include <candev/node.h>
 #include <candev/kozak.h>
 
-#include "path.h"
 #define __REALTIME__
 
 long get_ns_diff(const struct timespec *ts, const struct timespec *lts) {

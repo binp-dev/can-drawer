@@ -18,19 +18,16 @@ build:
 build/candev: build
 	mkdir -p $@
 
-build/can-control: build/control.o build/path.o build/candev/node_init.o build/candev/node_use.o 
+build/can-control: build/control.o build/candev/node_init.o build/candev/node_use.o 
 	gcc ${LF} -o $@ $^
 
-build/control.o: source/control.c source/path.h ${CANDEV_HDRS}
+build/control.o: source/control.c source/curve.h ${CANDEV_HDRS}
 	gcc ${CF} -c -o $@ $<
 
-build/can-monitor: build/monitor.o build/path.o build/candev/node_init.o build/candev/node_use.o 
+build/can-monitor: build/monitor.o build/candev/node_init.o build/candev/node_use.o 
 	gcc ${LF} -o $@ $^
 
-build/monitor.o: source/monitor.c source/path.h ${CANDEV_HDRS}
-	gcc ${CF} -c -o $@ $<
-
-build/path.o: source/path.c source/path.h
+build/monitor.o: source/monitor.c source/curve.h ${CANDEV_HDRS}
 	gcc ${CF} -c -o $@ $<
 
 build/candev/node_init.o: source/candev/node_init.c ${CANDEV_PATH}/node.h
