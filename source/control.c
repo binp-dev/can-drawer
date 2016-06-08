@@ -9,7 +9,7 @@
 #include "path.h"
 
 void func(double t, double *x, double *y) {
-	const int mr = 7.4;
+	const double mr = 0.75;
 	const int s = 4;
 	t *= s;
 	int ft = (int)floor(t);
@@ -26,6 +26,7 @@ long get_ns_diff(const struct timespec *ts, const struct timespec *lts) {
 }
 
 int main(int argc, char *argv[]) {
+	int i;
 	int status;
 	int done = 0;
 	CAN_Node node;
@@ -61,7 +62,7 @@ int main(int argc, char *argv[]) {
 	
 	double t = 0.0;
 	struct timespec lts;
-	double speed = 1.0; // V/s
+	double speed = 0.2; // V/s
 	long delay = 10000000; // ns
 	
 	long ns;
@@ -78,14 +79,16 @@ int main(int argc, char *argv[]) {
 		wp.use_code = 0;
 		
 		// X channels
-		wp.voltage = path.x;
 		{
+			// bottom
+			wp.voltage = path.x + 0.5; // path.x;
 			wp.channel_number = 2;
 			if(KOZ_dacWrite(&dev, &wp) != 0) {
 				fprintf(stderr, "error dac write\n");
 				return 2;
 			}
 			
+			wp.voltage = 0.0; //-(path.x + 0.13);
 			wp.channel_number = 4;
 			if(KOZ_dacWrite(&dev, &wp) != 0) {
 				fprintf(stderr, "error dac write\n");
@@ -94,14 +97,16 @@ int main(int argc, char *argv[]) {
 		}
 		
 		// Y channels
-		wp.voltage = path.y;
 		{
+			// right
+			wp.voltage = path.y + 0.25; // path.y;
 			wp.channel_number = 3;
 			if(KOZ_dacWrite(&dev, &wp) != 0) {
 				fprintf(stderr, "error dac write\n");
 				return 2;
 			}
 			
+			wp.voltage = 0.0; //-(path.y + 0.02);
 			wp.channel_number = 5;
 			if(KOZ_dacWrite(&dev, &wp) != 0) {
 				fprintf(stderr, "error dac write\n");

@@ -21,14 +21,20 @@ typedef struct {
 } Time;
 
 typedef struct {
-	double *coord;
-	double *time;
+	int channel;
+	double value;
+	double time;
+} Measure;
+
+typedef struct {
+	Measure *measures;
 	long len;
 	long pos;
 } Buffer;
 
 typedef struct {
 	Time *time;
+	Buffer *buffer;
 	int *done;
 } Cookie;
 
@@ -40,6 +46,7 @@ void callback(void *cookie_data, const KOZ_ADCReadResult *result) {
 	
 	Cookie *cookie = (Cookie*)cookie_data;
 	Time *time = cookie->time;
+	Buffer *buffer = cookie->buffer;
 	
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	if(!time->init) {
@@ -50,7 +57,14 @@ void callback(void *cookie_data, const KOZ_ADCReadResult *result) {
 	}
 	time->lts = ts;
 	
-	printf("channel: %d,\tvoltage: %lf,\ttime: %lf\n", result->channel_number, result->voltage, time->t);
+	Measure *m = buffer->measures + buffer->pos;
+	m->channel = result->channel_number;
+	m->value = result->voltage;
+	m->time = time->t;
+	// printf("channel: %d,\tvoltage: %lf,\ttime: %lf\n", result->channel_number, result->voltage, time->t);
+	
+	if(++buffer->pos >= buffer->len)
+		*(cookie->done) = 1;
 	
 	time->t += 1e-9*ns;
 	
@@ -100,9 +114,15 @@ int main(int argc, char *argv[]) {
 	time.init = 0;
 	time.counter = 0;
 	
+	Buffer buffer;
+	buffer.len = 0x10000;
+	buffer.pos = 0;
+	buffer.measures = (Measure*) malloc(sizeof(Measure)*buffer.len);
+	
 	Cookie cookie;
 	cookie.time = &time;
 	cookie.done = &done;
+	cookie.buffer = &buffer;
 	
 	dev.cb_cookie = (void *) &cookie;
 	
@@ -128,6 +148,14 @@ int main(int argc, char *argv[]) {
 #endif // __REALTIME__
 	
 	CAN_destroyNode(&node);
+	
+	printf("extracting data...\n");
+	for(i = 0; i < buffer.pos; ++i)
+	{
+		Measure *m = buffer.measures + i;
+		printf("%d\t%lf\t%lf\n", m->channel, m->value, m->time);
+	}
+	free((void*) buffer.measures);
 	
 	printf("exiting...\n");
 	
